@@ -1,0 +1,23 @@
+# 环境与密钥
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# 本地向量/缓存
+*.faiss
+*.pkl
+.cache/

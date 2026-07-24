@@ -1,0 +1,17 @@
+# LangChain 主线（以官方当前 Agent / create_agent 体系为准）
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.3.0
+langchain-text-splitters>=0.3.0
+langgraph>=0.2.0
+
+# 结构化与配置
+pydantic>=2.0
+python-dotenv>=1.0
+
+# RAG / 文档处理
+beautifulsoup4>=4.12
+requests>=2.31
+
+# 可选：本地调试
+rich>=13.0

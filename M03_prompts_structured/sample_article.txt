@@ -1,0 +1,10 @@
+LangChain 正在从「链式编排」走向「Agent + 可观测」。
+
+早期开发者习惯用 LLMChain、RetrievalQA 等高层封装快速拼装应用。随着任务变复杂，
+人们发现：真正难的是多步决策、工具调用失败重试、人机协同与状态持久化。
+
+为此，LangGraph 提供了基于状态图的运行时：节点、边、循环、checkpoint。
+在此之上，LangChain 的 create_agent 提供更友好的 Agent 入口，内部仍然编译为 Graph。
+
+对学习者的建议是：先掌握 Messages、Tools、Structured Output，再进入 Agent；
+需要私有知识时接 RAG；需要跨会话记忆时接 checkpointer。不要一上来堆框架名词。
