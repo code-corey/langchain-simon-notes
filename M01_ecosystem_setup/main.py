@@ -142,12 +142,6 @@ def main(argv: list[str] | None = None) -> int:
             print("[FAIL] 配置未就绪，无法 ping")
             ping_ok = False
         else:
-            try:
-                emb_msg = ping_embeddings()
-                print(f"[OK] {emb_msg}")
-            except Exception as exc:  # noqa: BLE001
-                print(f"[FAIL] embedding ping 失败：{exc}")
-                ping_ok = False
 
             try:
                 reply = ping_model()
@@ -155,6 +149,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(reply)
             except Exception as exc:  # noqa: BLE001 - 诊断场景需要展示任意错误
                 print(f"[FAIL] 聊天 ping 失败：{exc}")
+                ping_ok = False
+
+            try:
+                emb_msg = ping_embeddings()
+                print(f"[OK] {emb_msg}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[FAIL] embedding ping 失败：{exc}")
                 ping_ok = False
 
     print()
