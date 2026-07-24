@@ -2,7 +2,8 @@
 项目级配置与模型工厂。
 
 从仓库根目录的 .env 读取密钥与模型名，对外提供统一的
-聊天模型 / Embedding 创建入口，保证 8 个模块行为一致。
+聊天模型 / Embedding 创建入口。支持聊天与向量服务分离部署
+（例如 llama.cpp 聊天 + xinference embedding）。
 """
 
 from __future__ import annotations
@@ -26,8 +27,28 @@ class Settings:
     openai_api_key: str
     openai_base_url: str | None
     model_name: str
+    embedding_base_url: str | None
     embedding_model: str
     has_api_key: bool
+
+
+def normalize_openai_base_url(url: str | None) -> str | None:
+    """
+    规范化 OpenAI Compatible Base URL。
+
+    去掉末尾斜杠；若未以 /v1 结尾则自动补上，避免漏写路径。
+
+    :param url: 原始地址，可为 None。
+    :return: 规范化后的地址，或 None。
+    """
+    if not url:
+        return None
+    cleaned = url.strip().rstrip("/")
+    if not cleaned:
+        return None
+    if cleaned.endswith("/v1"):
+        return cleaned
+    return f"{cleaned}/v1"
 
 
 def load_settings(*, require_api_key: bool = True) -> Settings:
@@ -39,15 +60,31 @@ def load_settings(*, require_api_key: bool = True) -> Settings:
     """
     load_dotenv(REPO_ROOT / ".env")
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    base_url = (os.getenv("OPENAI_BASE_URL") or "").strip() or None
+    # 本地 OpenAI Compatible 常不校验 Key，允许用占位值
+    if not api_key:
+        api_key = "local"
+
+    base_url = normalize_openai_base_url(
+        (os.getenv("OPENAI_BASE_URL") or "").strip() or None
+    )
     model_name = (os.getenv("MODEL_NAME") or "openai:gpt-4o-mini").strip()
+
+    embedding_base_url = normalize_openai_base_url(
+        (os.getenv("EMBEDDING_BASE_URL") or "").strip() or None
+    )
+    # 未单独配置时，回退到聊天网关（同一服务既聊天又 embedding 的场景）
+    if embedding_base_url is None:
+        embedding_base_url = base_url
+
     embedding_model = (
         os.getenv("EMBEDDING_MODEL") or "text-embedding-3-small"
     ).strip()
 
-    if require_api_key and not api_key:
+    has_real_key = bool((os.getenv("OPENAI_API_KEY") or "").strip())
+    if require_api_key and not has_real_key and base_url is None:
         print(
-            "未检测到 OPENAI_API_KEY。请复制 .env.example 为 .env 并填入密钥。",
+            "未检测到 OPENAI_API_KEY，且未配置 OPENAI_BASE_URL。\n"
+            "请复制 .env.example 为 .env：云端填密钥，局域网填 Base URL（Key 可用 local）。",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -56,8 +93,9 @@ def load_settings(*, require_api_key: bool = True) -> Settings:
         openai_api_key=api_key,
         openai_base_url=base_url,
         model_name=model_name,
+        embedding_base_url=embedding_base_url,
         embedding_model=embedding_model,
-        has_api_key=bool(api_key),
+        has_api_key=has_real_key or bool(base_url),
     )
 
 
@@ -67,31 +105,34 @@ def print_settings_summary(settings: Settings) -> None:
 
     :param settings: 配置快照。
     """
-    key_preview = (
-        f"{settings.openai_api_key[:6]}...{settings.openai_api_key[-4:]}"
-        if settings.has_api_key and len(settings.openai_api_key) > 10
-        else ("未设置" if not settings.has_api_key else "***")
-    )
+    raw_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if raw_key and len(raw_key) > 10:
+        key_preview = f"{raw_key[:6]}...{raw_key[-4:]}"
+    elif raw_key:
+        key_preview = raw_key
+    else:
+        key_preview = "local（占位）"
+
     print("=== 运行配置 ===")
-    print(f"MODEL_NAME      : {settings.model_name}")
-    print(f"EMBEDDING_MODEL : {settings.embedding_model}")
-    print(f"OPENAI_BASE_URL : {settings.openai_base_url or '(默认官方)'}")
-    print(f"OPENAI_API_KEY  : {key_preview}")
+    print(f"MODEL_NAME         : {settings.model_name}")
+    print(f"OPENAI_BASE_URL    : {settings.openai_base_url or '(默认官方)'}")
+    print(f"EMBEDDING_MODEL    : {settings.embedding_model}")
+    print(f"EMBEDDING_BASE_URL : {settings.embedding_base_url or '(同聊天网关/官方)'}")
+    print(f"OPENAI_API_KEY     : {key_preview}")
 
 
 def get_chat_model(*, temperature: float = 0.2):
     """
     使用 init_chat_model 创建聊天模型。
 
-    优先走 langchain 统一入口；若配置了自定义 Base URL，
-    则回退到 ChatOpenAI 以保证兼容网关可用。
+    若配置了自定义 Base URL，则使用 ChatOpenAI 对接 OpenAI Compatible 网关
+    （如 llama.cpp、vLLM、OneAPI 等）。
 
     :param temperature: 采样温度。
     :return: 可 invoke / stream 的聊天模型实例。
     """
     settings = load_settings(require_api_key=True)
 
-    # 自定义网关：直接用 ChatOpenAI 更稳妥
     if settings.openai_base_url:
         from langchain_openai import ChatOpenAI
 
@@ -115,6 +156,8 @@ def get_embeddings():
     """
     创建 Embedding 模型，供 RAG 向量化使用。
 
+    优先使用独立的 EMBEDDING_BASE_URL（可与聊天服务分离）。
+
     :return: Embeddings 实例。
     """
     settings = load_settings(require_api_key=True)
@@ -124,8 +167,8 @@ def get_embeddings():
         "model": settings.embedding_model,
         "api_key": settings.openai_api_key,
     }
-    if settings.openai_base_url:
-        kwargs["base_url"] = settings.openai_base_url
+    if settings.embedding_base_url:
+        kwargs["base_url"] = settings.embedding_base_url
     return OpenAIEmbeddings(**kwargs)
 
 

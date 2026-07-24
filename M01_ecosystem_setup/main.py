@@ -71,7 +71,7 @@ def check_env_file() -> tuple[bool, str]:
 
 def ping_model() -> str:
     """
-    发起一次最小模型调用，验证密钥与网络。
+    发起一次最小模型调用，验证聊天服务连通性。
 
     :return: 模型回复文本。
     """
@@ -83,9 +83,23 @@ def ping_model() -> str:
     return str(text)
 
 
+def ping_embeddings() -> str:
+    """
+    发起一次最小 embedding 调用，验证向量服务连通性。
+
+    :return: 成功说明（含向量维度）。
+    """
+    from shared.config import get_embeddings
+
+    embeddings = get_embeddings()
+    vectors = embeddings.embed_documents(["连通性探测"])
+    dim = len(vectors[0]) if vectors and vectors[0] else 0
+    return f"embedding 成功，维度={dim}"
+
+
 def main(argv: list[str] | None = None) -> int:
     """
-    CLI 入口：打印地图、跑诊断，可选 ping 模型。
+    CLI 入口：打印地图、跑诊断，可选 ping 聊天与 embedding。
 
     :param argv: 命令行参数列表。
     :return: 进程退出码，0 表示全部必检项通过。
@@ -94,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ping",
         action="store_true",
-        help="额外发起一次真实模型调用以验证连通性",
+        help="额外探测聊天模型与 Embedding 服务连通性",
     )
     args = parser.parse_args(argv)
 
@@ -117,22 +131,29 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings(require_api_key=False)
     print_settings_summary(settings)
     key_ok = settings.has_api_key
-    print(f"[{'OK' if key_ok else 'WARN'}] API Key {'已配置' if key_ok else '未配置'}")
+    print(f"[{'OK' if key_ok else 'WARN'}] 运行配置 {'已就绪' if key_ok else '未就绪'}")
 
     ping_ok = True
     if args.ping:
         print()
-        print("=== 模型 Ping ===")
+        print("=== 服务 Ping ===")
         if not key_ok:
-            print("[FAIL] 无 API Key，无法 ping")
+            print("[FAIL] 配置未就绪，无法 ping")
             ping_ok = False
         else:
             try:
                 reply = ping_model()
-                print("[OK] 模型回复：")
+                print("[OK] 聊天模型回复：")
                 print(reply)
             except Exception as exc:  # noqa: BLE001 - 诊断场景需要展示任意错误
-                print(f"[FAIL] ping 失败：{exc}")
+                print(f"[FAIL] 聊天 ping 失败：{exc}")
+                ping_ok = False
+
+            try:
+                emb_msg = ping_embeddings()
+                print(f"[OK] {emb_msg}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[FAIL] embedding ping 失败：{exc}")
                 ping_ok = False
 
     print()

@@ -43,7 +43,9 @@ python -m venv .venv
 
 pip install -r requirements.txt
 copy .env.example .env
-# 编辑 .env，填入 OPENAI_API_KEY（可选 OPENAI_BASE_URL）
+# 编辑 .env：
+# - 云端：填 OPENAI_API_KEY
+# - 局域网双服务：填 OPENAI_BASE_URL + EMBEDDING_BASE_URL（见 .env.example 示例）
 ```
 
 按顺序运行：
@@ -77,12 +79,13 @@ python -m M08_memory_streaming.main
 
 | 变量 | 含义 |
 |------|------|
-| `OPENAI_API_KEY` | API 密钥 |
-| `OPENAI_BASE_URL` | 可选，OpenAI Compatible 网关 |
-| `MODEL_NAME` | 如 `openai:gpt-4o-mini` |
-| `EMBEDDING_MODEL` | RAG 用 embedding 模型 |
+| `OPENAI_API_KEY` | API 密钥；局域网可用 `local` |
+| `OPENAI_BASE_URL` | 聊天 OpenAI Compatible 地址（可自动补 `/v1`） |
+| `MODEL_NAME` | 聊天模型 id，如 `Qwen3.5-27B-Q8_0.gguf` |
+| `EMBEDDING_BASE_URL` | Embedding 服务地址（可与聊天分离） |
+| `EMBEDDING_MODEL` | Embedding 模型 id，如 `bge-m3` |
 
-公共工厂：`shared/config.py`。
+公共工厂：`shared/config.py`。聊天与向量可部署在不同机器/端口。
 
 ## 目录结构
 

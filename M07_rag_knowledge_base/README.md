@@ -35,12 +35,16 @@ data/*.md → split → embed → InMemoryVectorStore
 
 ## 4. 小项目：团队 Wiki 问答
 
+本模块通过 `shared.get_embeddings()` 调用向量服务，可用独立的
+`EMBEDDING_BASE_URL` + `EMBEDDING_MODEL`（例如 xinference 上的 `bge-m3`），
+不必与聊天模型同一地址。
+
 | 文件 | 作用 |
 |------|------|
 | `data/*.md` | 示例 Wiki |
 | `indexer.py` | 构建内存向量库 |
 | `rag_agent.py` | 检索工具 + create_agent |
-| `main.py` | CLI：`--rebuild` 重建索引并问答 |
+| `main.py` | CLI：重建索引并问答 |
 | `README.md` | 本解释文档 |
 
 ### 运行
