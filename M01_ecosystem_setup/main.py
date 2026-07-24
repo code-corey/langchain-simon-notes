@@ -134,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[{'OK' if key_ok else 'WARN'}] 运行配置 {'已就绪' if key_ok else '未就绪'}")
 
     ping_ok = True
+    args.ping = True
     if args.ping:
         print()
         print("=== 服务 Ping ===")
@@ -142,18 +143,18 @@ def main(argv: list[str] | None = None) -> int:
             ping_ok = False
         else:
             try:
+                emb_msg = ping_embeddings()
+                print(f"[OK] {emb_msg}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[FAIL] embedding ping 失败：{exc}")
+                ping_ok = False
+
+            try:
                 reply = ping_model()
                 print("[OK] 聊天模型回复：")
                 print(reply)
             except Exception as exc:  # noqa: BLE001 - 诊断场景需要展示任意错误
                 print(f"[FAIL] 聊天 ping 失败：{exc}")
-                ping_ok = False
-
-            try:
-                emb_msg = ping_embeddings()
-                print(f"[OK] {emb_msg}")
-            except Exception as exc:  # noqa: BLE001
-                print(f"[FAIL] embedding ping 失败：{exc}")
                 ping_ok = False
 
     print()
